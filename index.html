@@ -180,6 +180,11 @@ input:focus,textarea:focus{border-color:var(--sinal-claro);outline:none;box-shad
 textarea{min-height:140px;resize:vertical}
 form .btn{justify-self:start}
 .nota{font-size:.9rem;color:#8FA0B8}
+.status{font-family:var(--f-display);font-weight:600;font-size:1rem;min-height:0}
+.status:empty{display:none}
+.status.ok{color:#7FE0A6;border-left:4px solid #7FE0A6;padding-left:14px}
+.status.erro{color:#FFB1A9;border-left:4px solid var(--sinal-claro);padding-left:14px}
+form .btn:disabled{opacity:.6;cursor:progress}
 
 footer{background:#07132A;color:#8FA0B8;padding:28px 0;font-family:var(--f-display);font-size:.9rem}
 footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
@@ -408,9 +413,8 @@ footer a{color:#C0CDE0}
   <div class="wrap">
     <div>
       <h2>Vamos conversar sobre o seu desafio?</h2>
-      <p class="direto">Conte em poucas linhas o que a sua empresa precisa. Respondo pessoalmente para marcar uma conversa inicial.</p>
+      <p class="direto">Conte em poucas linhas o que a sua empresa precisa. Respondo pessoalmente para marcar uma conversa inicial, ou fale comigo pelo LinkedIn.</p>
       <div class="links">
-        <a href="mailto:mauricio.stellato@gmail.com">mauricio.stellato@gmail.com</a>
         <a href="https://www.linkedin.com/in/mstellato" target="_blank" rel="noopener">linkedin.com/in/mstellato</a>
       </div>
     </div>
@@ -418,14 +422,19 @@ footer a{color:#C0CDE0}
       <label>Seu nome
         <input type="text" name="nome" autocomplete="name" required>
       </label>
+      <label>Seu e-mail
+        <input type="email" name="email" autocomplete="email" required>
+      </label>
       <label>Empresa
         <input type="text" name="empresa" autocomplete="organization">
       </label>
       <label>Qual é o desafio?
         <textarea name="desafio" placeholder="Ex.: queremos expandir nosso programa de parceiros e entrar em novos mercados" required></textarea>
       </label>
-      <button class="btn" type="submit">Enviar mensagem</button>
-      <p class="nota">Ao enviar, abrimos o seu aplicativo de e-mail com a mensagem pronta.</p>
+      <input type="text" name="_honey" tabindex="-1" autocomplete="off" style="display:none" aria-hidden="true">
+      <button class="btn" type="submit" id="btn-enviar">Enviar mensagem</button>
+      <p class="status" id="status-form" role="status" aria-live="polite"></p>
+      <p class="nota">Seus dados são usados só para responder a esta mensagem.</p>
     </form>
   </div>
 </section>
@@ -452,10 +461,33 @@ footer a{color:#C0CDE0}
   document.getElementById('ano').textContent=new Date().getFullYear();
   document.getElementById('form-contato').addEventListener('submit',function(e){
     e.preventDefault();
-    var f=e.target;
-    var assunto='Contato pelo site: '+(f.empresa.value||f.nome.value);
-    var corpo='Nome: '+f.nome.value+'\nEmpresa: '+f.empresa.value+'\n\nDesafio:\n'+f.desafio.value;
-    window.location.href='mailto:mauricio.stellato@gmail.com?subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(corpo);
+    var f=e.target,b=document.getElementById('btn-enviar'),s=document.getElementById('status-form');
+    if(f._honey.value){return;}
+    b.disabled=true;b.textContent='Enviando...';s.className='status';s.textContent='';
+    var dest=['mauricio.stellato','gmail.com'].join(String.fromCharCode(64));
+    fetch('https://formsubmit.co/ajax/'+dest,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({
+        name:f.nome.value,
+        email:f.email.value,
+        empresa:f.empresa.value,
+        message:f.desafio.value,
+        _subject:'Contato pelo site: '+(f.empresa.value||f.nome.value),
+        _template:'table',
+        _captcha:'false'
+      })
+    }).then(function(r){return r.json();}).then(function(d){
+      if(d&&(d.success===true||d.success==='true')){
+        f.reset();s.className='status ok';
+        s.textContent='Mensagem enviada. Respondo pessoalmente em breve.';
+      }else{throw new Error('falha');}
+    }).catch(function(){
+      s.className='status erro';
+      s.textContent='Não foi possível enviar agora. Tente de novo em instantes ou fale comigo pelo LinkedIn.';
+    }).then(function(){
+      b.disabled=false;b.textContent='Enviar mensagem';
+    });
   });
   var v=document.querySelector('.video');
   if(v){
